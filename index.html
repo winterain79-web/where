@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>대리기사님께 위치 보내기</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; background: #fff; color: #1b212b; }
+  main { max-width: 420px; margin: 0 auto; padding: 40px 22px 32px; text-align: center; }
+  .ic { width: 84px; height: 84px; border-radius: 50%; background: #e8f0ff; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 18px; }
+  h1 { font-size: 24px; line-height: 1.35; margin-bottom: 10px; }
+  p { font-size: 16px; color: #5a6472; line-height: 1.6; margin-bottom: 22px; }
+  button { width: 100%; border: 0; border-radius: 16px; padding: 20px; font-size: 21px; font-weight: 800; background: #2f6fdd; color: #fff; }
+  button:disabled { background: #b9c6dd; }
+  button.sub { background: #eef1f5; color: #1b212b; font-size: 17px; margin-top: 4px; }
+  small { display: block; font-size: 13px; color: #8a919c; line-height: 1.6; margin-top: 18px; }
+  .ok .ic { background: #e7f8ee; } .ok h1 { color: #12965a; }
+  .err { color: #c0392b; font-size: 15px; margin-top: 14px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<main id="m">
+  <div class="ic" id="ic">📍</div>
+  <h1 id="t">대리기사님께<br>지금 위치를 보낼까요?</h1>
+  <p id="d">기사님이 고객님을 찾아가는 데만 써요.</p>
+  <button id="b">위치 보내기</button>
+  <div class="err" id="e"></div>
+  <small>· 버튼을 누를 때 한 번만 보내요<br>· 운행이 시작되면 바로 지워지고, 늦어도 30분 뒤에는 지워져요<br>· 보내지 않으려면 이 화면을 닫으세요</small>
+</main>
+<script>
+  // 공개돼도 되는 값 (앱에도 들어 있는 공개 열쇠). 올릴 때 실제 값으로 바꿔 넣는다.
+  var API = "https://ybwzxibzwtevhvzytbgr.supabase.co";
+  var KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlid3p4aWJ6d3Rldmh2enl0YmdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQyNDczNjksImV4cCI6MjEwOTgyMzM2OX0._OVckWbI3IeH9Fxx-wxDyBUkJBhDfJSCinRh8-VBFzs";
+  var token = (new URLSearchParams(location.search).get("t") || "").trim();
+  var b = document.getElementById("b"), e = document.getElementById("e"), m = document.getElementById("m");
+  function fail(msg) { e.textContent = msg; b.disabled = false; b.textContent = "다시 시도"; }
+  function done() {
+    m.className = "ok";
+    document.getElementById("ic").textContent = "✅";
+    document.getElementById("t").textContent = "위치를 보냈어요";
+    document.getElementById("d").innerHTML = "기사님이 곧 찾아갑니다.<br>그 자리에서 잠시만 기다려 주세요.";
+    b.disabled = false; b.className = "sub"; b.textContent = "자리를 옮겼어요 · 다시 보내기"; e.textContent = "";
+  }
+  if (token.length !== 10) { b.disabled = true; e.textContent = "주소가 올바르지 않아요. 기사님께 문자를 다시 보내 달라고 해 주세요."; }
+  b.onclick = function () {
+    if (!navigator.geolocation) { fail("이 휴대폰에서는 위치를 보낼 수 없어요."); return; }
+    b.disabled = true; b.textContent = "위치 확인 중…"; e.textContent = "";
+    navigator.geolocation.getCurrentPosition(function (p) {
+      fetch(API + "/rest/v1/rpc/loc_submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": KEY, "Authorization": "Bearer " + KEY },
+        body: JSON.stringify({ t: token, lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy || 0 })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j && j.status === "ok") done();
+        else if (j && j.status === "expired") fail("시간이 지나 주소가 만료됐어요. 기사님께 문자를 다시 보내 달라고 해 주세요.");
+        else fail("보내지 못했어요. 다시 눌러 주세요.");
+      }).catch(function () { fail("인터넷 연결을 확인하고 다시 눌러 주세요."); });
+    }, function (err) {
+      fail(err && err.code === 1 ? "위치 사용을 허용해야 보낼 수 있어요. 다시 누른 뒤 [허용]을 눌러 주세요." : "위치를 찾지 못했어요. 창가나 밖에서 다시 눌러 주세요.");
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  };
+</script>
+</body>
+</html>
